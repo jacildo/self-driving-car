@@ -16,7 +16,20 @@ class Car {
 
     // accelerate or decelerate the car
     accelerate(delta: Number) {
-        speed += 
+        this.speed += this.maxAcceleration
+    }
+
+    decelerate(delta: Number) {
+
+    }
+
+    checkErrors() {
+
+    }
+
+    // 
+    checkEfficiency() {
+
     }
 
 }
