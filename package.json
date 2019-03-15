@@ -1,0 +1,26 @@
+{
+  "name": "finals",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc ./src/main.ts --outFile ./public/build.js --module system",
+    "start": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jacildo/self-driving-car.git"
+  },
+  "author": "Brian Jacildo",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jacildo/self-driving-car/issues"
+  },
+  "homepage": "https://github.com/jacildo/self-driving-car#readme",
+  "dependencies": {
+    "@tensorflow/tfjs": "^1.0.1",
+    "@types/synaptic": "^1.0.3",
+    "express": "^4.16.4",
+    "synaptic": "^1.1.4"
+  }
+}
