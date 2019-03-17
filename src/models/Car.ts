@@ -1,70 +1,103 @@
 import { CarSetting } from './CarSetting';
+import { Brain } from './Brain';
 
 class Car {
-    // X and Y coordinates on the map
+    // passed from the level
     x: number;
+    delta: number;
+    distanceScale: number;
 
-    speed: number;
+    // passed from the settings/constructor
+    brain: Brain;
     maxAcceleration: number;
     maxSpeed: number;
     minSpeed: number;
-    distanceScale: number;
-    error: number;
-    efficiency: number;
-
-    /*
-        The brain's output layers will have the following neurons:    
-        1. Action: determines whether to accelerate, decelerate, or do nothing
-        2. Efficiency: make sure this neuron aims for highest efficiency
-        3. Errors: make sure this neuron aims for zero errors
-    */
-    brain: any;
     learningRate: number;
+    efficiencyFunction: Function;
+    errorMultiplier: number;
 
-    constructor(brain: any, settings: CarSetting) {
-        this.error = 0;
-        this.efficiency = 1;
-        this.brain = brain;
-        this.learningRate = settings.learningRate;
+    // current state of the car
+    speed: number;
+    active: boolean;
+    efficiency: number;
+    runningTime: number;
 
-        this.maxAcceleration = settings.maxAcceleration;
-        this.maxSpeed = settings.maxSpeed;
+    constructor(settings: CarSetting) {
+        this.brain              = settings.brain;
+        this.learningRate       = settings.learningRate;
+        this.maxSpeed           = settings.maxSpeed;
+        this.maxAcceleration    = settings.maxAcceleration;
+        this.distanceScale      = settings.distanceScale;
+        this.efficiencyFunction = settings.efficiencyFunction;
+        this.errorMultiplier    = settings.errorMultiplier;
+
         this.minSpeed = 0;
         this.speed = 0;
-        this.distanceScale = settings.distanceScale;
+        this.active = true;
+        this.runningTime = 0;
     }
 
     tick(delta: number) {
-        // get the action, whether 0, 1 or 2. 
-        var action = Math.floor(this.brain.neurons()[0].activate() * 3);
-        // Miniscule chance of value of 3, if so, change 3 to 2
-        action = action > 2 ? 2 : action;
+        this.delta = delta;
 
+        if(this.active) {
+            this.update();
+        }
+    }
+
+    // stop the car from updating
+    // use this when end of line is reached
+    stop() {
+        this.active = false;
+    }
+
+    // get the next action to perform using the Action neuron
+    // then call the appropriate function
+    update() {
+        let action = this.brain.getAction();
         switch(action) {
             case 0:
-                this.accelerate(delta);
+                this.accelerate();
             case 1:
-                this.decelerate(delta);
+                this.decelerate();
             case 2:
                 break;
         }
 
-        this.updateLocation(delta);
+        this.updateEfficiency();
+        this.updateLocation();
     }
 
     // accelerate, but speed should not exceed the car's max speed
-    accelerate(delta: number) {
-        this.speed = Math.max(this.speed + (this.maxAcceleration * delta), this.maxSpeed);
+    accelerate() {
+        let speed = this.speed + (this.maxAcceleration * this.delta);
+        this.speed = Math.max(speed, this.maxSpeed);
     }
 
     // decelerate, but speed should not be lower than 0
-    decelerate(delta: number) {
-        this.speed = Math.min(this.speed - (this.maxAcceleration * delta), this.minSpeed);
+    decelerate() {
+        let speed = this.speed - (this.maxAcceleration * this.delta);
+        this.speed = Math.min(speed, this.minSpeed);
+    }
+
+    updateEfficiency() {
+        
     }
 
     // move the car forward depending on the speed
-    updateLocation(delta: number) {
-        this.x += delta * this.speed;
+    updateLocation() {
+        this.x += (this.delta * this.speed);
+    }
+
+    // returns the current error rate of the car
+
+    get error(): number {
+        return ;
+    }
+
+    // aim for perfect efficiency, and zero error
+    learn() {
+        this.brain.learn(1, 0);
     }
 
 }
