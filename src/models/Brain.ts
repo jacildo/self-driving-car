@@ -1,11 +1,12 @@
 import { Neuron, Layer, Network, Trainer, Architect } from 'synaptic';
 
 class Brain {
-    _net: Network;
+    private _net: Network;
     learningRate: number;
 
-    constructor(learningRate: number) {
+    constructor(learningRate: number, neuralNetwork: Network) {
         this.learningRate = learningRate;
+        this._net = neuralNetwork;
     }
 
     get net(): Network {
@@ -27,15 +28,15 @@ class Brain {
     }
 
     get actionNeuron(): Neuron {
-        return this.outputLayer.neurons[0];
+        return this.outputLayer.neurons()[0];
     }
     
     get efficiencyNeuron(): Neuron {
-        return this.outputLayer.neurons[1];
+        return this.outputLayer.neurons()[1];
     }
 
     get errorNeuron(): Neuron {
-        return this.outputLayer.neurons[2];
+        return this.outputLayer.neurons()[2];
     }
 
     // get the action, whether 0, 1 or 2. 

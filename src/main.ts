@@ -1,21 +1,18 @@
 import { Car } from './models/Car';
-import { Neuron, Layer, Network, Trainer, Architect } from 'synaptic';
+import { CarSetting } from './models/CarSetting';
+import { Architect } from 'synaptic';
+import { Brain } from './models/Brain';
 
-// create the neural network layers
-var inputLayer = new Layer(4);
-var hiddenLayer1 = new Layer(8);
-var hiddenLayer2 = new Layer(8);
-var outputLayer = new Layer(2);
+var net = new Architect.Perceptron(4,16,16,3);
 
-// define the projection in the layers
-inputLayer.project(hiddenLayer1);
-hiddenLayer1.project(hiddenLayer2);
-hiddenLayer2.project(outputLayer);
+// simple wave function that gives a peak efficiency at 80kph
+var efficiencyFunction = function(speed: number) {
+	return Math.sin((Math.PI * speed)/160);
+}
 
-// define the neural network
-var net = new Network({
-	input: inputLayer,
-	hidden: [hiddenLayer1, hiddenLayer2],
-	output: outputLayer
-});
-
+var settings: CarSetting = {
+	maxAcceleration: 10,
+	maxSpeed: 160,
+	brain: new Brain(0.002, net),
+	efficiencyFunction,
+}

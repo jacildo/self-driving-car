@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "tsc ./src/main.ts --outFile ./public/build.js --module system",
+    "build": "tsc",
     "start": "node index.js"
   },
   "repository": {
@@ -22,5 +22,11 @@
     "@types/synaptic": "^1.0.3",
     "express": "^4.16.4",
     "synaptic": "^1.1.4"
+  },
+  "devDependencies": {
+    "ts-loader": "^5.3.3",
+    "typescript": "^3.3.3333",
+    "webpack": "^4.29.6",
+    "webpack-cli": "^3.3.0"
   }
 }
