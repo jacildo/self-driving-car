@@ -1,5 +1,6 @@
 import { CarSetting } from './CarSetting';
 import { Brain } from './Brain';
+import { CarAction } from './CarAction';
 
 class Car {
     // passed from the level
@@ -56,15 +57,15 @@ class Car {
     update() {
         let action = this.brain.getAction();
         switch(action) {
-            case 0:
+            case CarAction.Accelerate:
                 this.accelerate();
-            case 1:
+            case CarAction.Decelerate:
                 this.decelerate();
-            case 2:
+            case CarAction.Idle:
                 break;
         }
 
-        this.updateEfficiency();
+        this.updateStats();
         this.updateLocation();
     }
 
@@ -80,7 +81,7 @@ class Car {
         this.speed = Math.min(speed, this.minSpeed);
     }
 
-    updateEfficiency() {
+    updateScore() {
         
     }
 
@@ -90,14 +91,8 @@ class Car {
     }
 
     // returns the current error rate of the car
-
     get error(): number {
         return ;
-    }
-
-    // aim for perfect efficiency, and zero error
-    learn() {
-        this.brain.learn(1, 0);
     }
 
 }

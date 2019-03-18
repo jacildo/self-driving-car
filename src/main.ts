@@ -13,6 +13,7 @@ var efficiencyFunction = function(speed: number) {
 var settings: CarSetting = {
 	maxAcceleration: 10,
 	maxSpeed: 160,
-	brain: new Brain(0.002, net),
+	brain: new Brain(net),
 	efficiencyFunction,
 }
+
