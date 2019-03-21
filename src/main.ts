@@ -3,6 +3,10 @@ import { CarSetting } from './models/CarSetting';
 import { Architect } from 'synaptic';
 import { Brain } from './models/Brain';
 
+declare global {
+    interface Window { finals: any; }
+}
+
 
 // simple wave function that gives a peak efficiency at 80kph
 var efficiencyFunction = function(speed: number) {
@@ -12,7 +16,7 @@ var efficiencyFunction = function(speed: number) {
 let population: Car[];
 const populationSize = 16;
 
-// create 16 cars
+// create 16 cars, then initialize their neural networks
 function initialize() {
 	population =  [...Array(populationSize)].map((_, i) => {
 
@@ -29,3 +33,6 @@ function initialize() {
 }
 
 
+window.finals = {
+	initialize
+};
