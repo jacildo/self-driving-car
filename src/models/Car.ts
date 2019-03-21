@@ -23,6 +23,10 @@ class Car {
     efficiency: number;
     runningTime: number;
 
+    efficiencyPenalty: number;
+    overspeedingPenalty: number;
+    violationPenalty: number;
+
     constructor(settings: CarSetting) {
         this.brain              = settings.brain;
         // this.learningRate       = settings.learningRate;
@@ -36,14 +40,10 @@ class Car {
         this.speed = 0;
         this.active = true;
         this.runningTime = 0;
-    }
-
-    tick(delta: number) {
-        this.delta = delta;
-
-        if(this.active) {
-            this.update();
-        }
+        
+        this.efficiencyPenalty = 0;
+        this.overspeedingPenalty = 0;
+        this.violationPenalty = 0;
     }
 
     // stop the car from updating
@@ -54,7 +54,13 @@ class Car {
 
     // get the next action to perform using the Action neuron
     // then call the appropriate function
-    update() {
+    update(        
+        delta: number,
+        isInRedIntersection: boolean,
+        speedLimit: number,
+    ) {
+        if(!this.active) return;
+
         let action = this.brain.getAction();
         switch(action) {
             case CarAction.Accelerate:
@@ -65,7 +71,6 @@ class Car {
                 break;
         }
 
-        this.updateStats();
         this.updateLocation();
     }
 
@@ -76,14 +81,15 @@ class Car {
     }
 
     // decelerate, but speed should not be lower than 0
+    // when decelerating, energy is wasted, so deduct the score
     decelerate() {
-        let speed = this.speed - (this.maxAcceleration * this.delta);
+        let deceleration = this.maxAcceleration * this.delta;
+        let speed = this.speed - deceleration;
         this.speed = Math.min(speed, this.minSpeed);
+
+        this.efficiencyPenalty -= deceleration * this.delta;
     }
 
-    updateScore() {
-        
-    }
 
     // move the car forward depending on the speed
     updateLocation() {
