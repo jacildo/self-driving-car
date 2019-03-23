@@ -13,7 +13,6 @@ class Car {
     maxAcceleration: number;
     maxSpeed: number;
     minSpeed: number;
-    learningRate: number;
     efficiencyFunction: Function;
     errorMultiplier: number;
 
@@ -29,7 +28,6 @@ class Car {
 
     constructor(settings: CarSetting) {
         this.brain              = settings.brain;
-        // this.learningRate       = settings.learningRate;
         this.maxSpeed           = settings.maxSpeed;
         this.maxAcceleration    = settings.maxAcceleration;
         // this.distanceScale      = settings.distanceScale;

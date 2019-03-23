@@ -29,6 +29,37 @@ class Brain {
             return CarAction.Decelerate;
         }
     }
+
+    // mutate neurons in this brain's hidden layers by a mutation rate
+    mutate(mutationRate: number) {
+        for(var i = 0; i < this.net.neurons.length; i++) {
+            if(this.getChance(mutationRate)) {
+
+                // (<any>this.net.neurons)[i] = (<any>source.net.neurons)[i]; 
+            }
+        }
+        
+    }
+
+    // take a percentage of another Brain's neural network and mutate this Brain
+    crossBreed(source: Brain, mutationRate: number) {
+        let destinationNeurons = this.net.neurons();
+        let sourceNeurons = source.net.neurons();
+        for(var i = 0; i < destinationNeurons.length; i++) {
+            if(this.getChance(mutationRate)) {
+                destinationNeurons[i] = sourceNeurons[i]; 
+            }
+        }
+    }
+
+    // use a random number generator to get a boolean based on a success rate
+    private getChance(rate: number) {
+        if(rate < 0 || rate > 1) {
+            return false;
+        }
+
+        return Math.random() < rate;
+    }
 }
 
 export { Brain };
