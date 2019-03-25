@@ -1,6 +1,7 @@
 import { CarSetting } from './CarSetting';
 import { Brain } from './Brain';
 import { CarAction } from './CarAction';
+import { Level } from './Level';
 
 class Car {
     // passed from the level
@@ -11,7 +12,6 @@ class Car {
     // passed from the settings/constructor
     brain: Brain;
     maxAcceleration: number;
-    maxSpeed: number;
     minSpeed: number;
     efficiencyFunction: Function;
     errorMultiplier: number;
@@ -26,9 +26,10 @@ class Car {
     overspeedingPenalty: number;
     violationPenalty: number;
 
-    constructor(settings: CarSetting) {
+    level: Level;
+
+    constructor(settings: CarSetting, level: Level) {
         this.brain              = settings.brain;
-        this.maxSpeed           = settings.maxSpeed;
         this.maxAcceleration    = settings.maxAcceleration;
         // this.distanceScale      = settings.distanceScale;
         this.efficiencyFunction = settings.efficiencyFunction;
@@ -39,9 +40,8 @@ class Car {
         this.active = true;
         this.runningTime = 0;
         
-        this.efficiencyPenalty = 0;
-        this.overspeedingPenalty = 0;
-        this.violationPenalty = 0;
+        this.setLevel(level);
+
     }
 
     // stop the car from updating
@@ -50,12 +50,14 @@ class Car {
         this.active = false;
     }
 
+    setLevel(level: Level) { 
+        this.level = level;
+    }
+
     // get the next action to perform using the Action neuron
     // then call the appropriate function
     update(        
         delta: number,
-        isInRedIntersection: boolean,
-        speedLimit: number,
     ) {
         if(!this.active) return;
 
@@ -70,12 +72,13 @@ class Car {
         }
 
         this.updateLocation();
+        this.learn(action);
     }
 
     // accelerate, but speed should not exceed the car's max speed
     accelerate() {
         let speed = this.speed + (this.maxAcceleration * this.delta);
-        this.speed = Math.max(speed, this.maxSpeed);
+        this.speed = Math.max(speed, this.level.speedLimit);
     }
 
     // decelerate, but speed should not be lower than 0
@@ -88,6 +91,20 @@ class Car {
         this.efficiencyPenalty -= deceleration * this.delta;
     }
 
+    /*
+     * 1   - Accelerate
+     * 0.5 - Idle
+     * 0   - Decelerate
+     */
+
+    learn(action: CarAction) {
+        // if overspeeding, set the expected action to 1
+        if(this.speed > this.level.speedLimit) {
+            this.brain.propagateAction(0);
+        } else if (this.speed < this.level.speedLimit) {
+            this.brain.propagateAction(1);
+        }
+    }
 
     // move the car forward depending on the speed
     updateLocation() {
