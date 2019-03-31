@@ -20,6 +20,11 @@
 
   <div class="container text-center">
     <canvas id="stage" width="1024" height="768"></canvas>
+
+    <div class="row">
+      <svg class="draw" width="1000px" height="1000px"></svg>
+    </div>
+    
   </div>
   <!-- <img id="car-img" src="/public/img/car.png" style="display: none;" /> -->
   <!-- Optional JavaScript -->
@@ -134,9 +139,9 @@
           this.score -= (this.level.speedLimit - this.speed) * delta;
         }
 
-        let isInIntersection = _.inRange(this.position, level.intersectionStart, level.intersectionEnd);
+        let isInIntersection = _.inRange(this.position, this.level.intersectionStart, this.level.intersectionEnd);
         let nextPosition = this.position + (this.speed * delta);
-        let nextIsInIntersection = _.inRange(this.position, level.intersectionStart, level.intersectionEnd);
+        let nextIsInIntersection = _.inRange(this.position, this.level.intersectionStart, this.level.intersectionEnd);
 
         // crossed the intersection, penalize 50 pts
         if (!isInIntersection && nextIsInIntersection) {
@@ -169,95 +174,119 @@
     // set up the neural network architecture
     // var net = new neataptic.architect.Perceptron(8, 12, 12, 1);
 
-    // set up the global variables
-    const POPULATION_COUNT = 16;
-    const PARENT_COUNT = 4;
+    /*
+      option parameters:
+        canvasId: default 'stage'
+        canvasWidth: default 800
+        populationSize: default 1
 
-    // create the initial population of cars
-    let level = new Level(800);
-    let promises = [...Array(POPULATION_COUNT)].map(i => {
-      // let net = new neataptic.architect.Perceptron(7, 16, 16, 1);
-      // net.connections.map(connection => {
-      //   connection.weight = Math.random();
-      // })
-      return new Promise(function (resolve, reject) {
-        let net = new neataptic.architect.Random(7, 32, 1, {
-          connections: 64,
-          gates: 4,
-          selfconnections: 4
+    */
+    class SimulationManager {
+      constructor(options) {
+        options = options || {};
+        options.canvasId = options.canvasId || 'stage';
+        options.populationSize = options.populationSize || 1;
+        options.tickRate = options.tickRate || 24;
+
+        // load the canvas
+        let canvas = document.getElementById(options.canvasId);
+        if(canvas === null) {
+          console.error(`Cannot initialize simulation manager. Element "${options.canvasId}" not found`);
+        }
+        this.canvas = canvas;
+        options.canvasWidth = options.canvasWidth || this.canvas.width;
+
+        this.options = options;
+        this.simulationRunning = false;
+        this.tickRate = 1000 / options.tickRate;
+        this.lastTick = new Date();
+
+        // get the canvas elements
+        this.carImg = new Image();
+        this.carImg.src = 'data:image/png;base64,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';
+        this.ctx = this.canvas.getContext('2d');
+
+        this.initialize();
+      }
+
+      // the tick event. this runs every frame
+      tick = () => {
+        if (!this.population.some(this.carIsActive)) {
+          this.stop();
+          return;
+        }
+
+        let currentTick = new Date();
+        let delta = currentTick - this.lastTick;
+        this.population.map(car => {
+          let deltaSeconds = delta / 1000;
+          car.tick(deltaSeconds)
+        });
+        this.lastTick = currentTick;
+        console.log(`Last Run: ${currentTick.toLocaleTimeString()} at ${delta}ms`);
+        this.draw();
+      }
+
+      draw() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        for (var i = 0; i < this.population.length; i++) {
+          this.ctx.drawImage(this.carImg, this.population[i].position, i * 64, 64, 64);
+        }
+      }
+
+      start() {
+        this.lastTick = new Date();
+        this.simulation = setInterval(this.tick, this.tickRate);
+      }
+
+      stop() {
+        clearInterval(this.simulation);
+        console.log(this.population.map(c => c.speed))
+      }
+
+      carIsActive(car) {
+        return car.active;
+      }
+
+      initialize() {
+        const level = new Level(this.options.canvasWidth);
+
+        // create the initial population of cars
+        let promises = [...Array(this.populationSize)].map(i => {
+          // let net = new neataptic.architect.Perceptron(7, 16, 16, 1);
+          // net.connections.map(connection => {
+          //   connection.weight = Math.random();
+          // })
+          return new Promise(function (resolve, reject) {
+            let net = new neataptic.architect.Random(7, 32, 32, 1, {
+              connections: 64,
+              gates: 4,
+              selfconnections: 4
+            });
+
+            net.mutate(neataptic.methods.mutation.MOD_WEIGHT);
+            net.mutate(neataptic.methods.mutation.MOD_BIAS);
+            net.mutate(neataptic.methods.mutation.MOD_ACTIVATION);
+
+            let brain = new Brain(net);
+            let carLevel = _.clone(level);
+            let car = new Car(brain, carLevel);
+
+            resolve(car);
+          })
         });
 
-        net.mutate(neataptic.methods.mutation.MOD_WEIGHT);
-        net.mutate(neataptic.methods.mutation.MOD_BIAS);
-        net.mutate(neataptic.methods.mutation.MOD_ACTIVATION);
-
-        let brain = new Brain(net);
-        let carLevel = _.clone(level);
-        let car = new Car(brain, carLevel);
-
-        resolve(car);
-      })
-    });
-
-    let simulationRunning = true;
-    let tickRate = 1000 / 30; // 30 frames per second
-    let lastTick = new Date();
-
-    function isActive(car) {
-      return car.active;
-    }
-
-    // the tick event. this runs every frame
-    function eventTick() {
-      if (!population.some(isActive)) {
-        stopSimulation();
-        return;
-      }
-
-      let currentTick = new Date();
-      let delta = currentTick - lastTick;
-      population.map(car => {
-        let deltaSeconds = delta / 1000;
-        car.tick(deltaSeconds)
-      });
-      lastTick = currentTick;
-      console.log(`Last Run: ${currentTick.toLocaleTimeString()} at ${delta}ms`);
-      draw();
-    }
-
-    let simulation;
-    let population;
-
-    function stopSimulation() {
-      clearInterval(simulation);
-      console.log(population.map(c => c.speed))
-    }
-
-    // Run promises to make sure all cars are created without null values
-    Promise.all(promises)
-      .then(function (result) {
-        population = result;
-        console.log(`Application stopped at: ${Date.now()}`);
-      })
-      .then(function () {
-        simulation = setInterval(eventTick, tickRate);
-      })
-
-
-
-    /*
-      Functions for drawing or rendering to canvas
-    */
-    let carImg = new Image();
-    carImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAACXBIWXMAABJ0AAASdAHeZh94AAAAAmJLR0QAAKqNIzIAAAAHdElNRQfjAx8BEAaxvSPGAAAAJXRFWHRkYXRlOmNyZWF0ZQAyMDE5LTAzLTMxVDAwOjE2OjA2KzAxOjAwnUqsawAAACV0RVh0ZGF0ZTptb2RpZnkAMjAxOS0wMy0zMVQwMDoxNjowNiswMTowMOwXFNcAAAAZdEVYdFNvZnR3YXJlAHd3dy5pbmtzY2FwZS5vcmeb7jwaAAAGV0lEQVR4Xu1ZeUhVXRAfTcv2sshcyDalbFVKWhSpRNsJJJL26I8KAg1MsAgqUQkhFYSi7I/on8o/AimitAxpIYXKlke0UmJlpfaSdm2+mfHcy315e8+vL30f3vuDYe47Z8699/zO3DMz5/kgASwMX6UtC5sApS0LmwClLQubAKUtC5sApS0LmwClLQubAKUtC5sApS0LmwClLQubAKUtiy47E2xpaYG6ujp48+YNfPz4ET5//gxfvnyBQYMGQd++fWHw4MEwduxYCA0NVSO8g79CwOPHj+HGjRtw8+ZNuH//vkhTU5PqdY9+/fpBREQExMfHQ1JSEsybNw8GDBigersef0RAW1sbVFRUwJkzZ6CsrAxev34t7byyc+bMgalTp8qkeHV5gv3794ezZ89Cbm4uZGVlQWJionjH06dPRR48eCCk8X39/f1h6dKlkJaWBgkJCXLfLgUT0Fk4HA7MzMzEkJAQJk2EJoc0UaTJIbm4suyIy5cvi/2GDRtUiyucTicSmbh+/Xqkz0Nso6Oj8fjx4/jt2zdl9ffhkYAPHz7g4cOHcdasWfqkWUaNGoX5+fl47do1JLdFWj01whzkJTJu9OjRquX3oD0DDxw4gEFBQTJm5MiRuH//fnz37p2y+HswJeDly5d48uRJXLt2LZJbu0w8ODgYjxw5IqvCK07uLqvbGQQGBso9Xrx4oVrc4/3797hixQr92fwuW7ZswYcPHyqL/w4hgF07PT0d6dsUtrUHmgmvuIbt27dLW0lJiWpxj7lz54r9iRMnVItn3L17F/v06ePyDr6+vrhs2TKsrKxUVn8O2QSnT58OtbW1dG/P4A2KN7vv37/LBkjDYfz48bJh9erVS8Lc7/ShQ4egqqoK1qxZA+TS0Lt3b9kgtX4z7Nq1C/Ly8tSvjoiJiYFt27aJnjBhgmy6/wZCwLhx4+DZs2eqybsYOnSo6IEDB4Kfn5+EU9qHpM0TyDNg4sSJQJ6mC8/NLZgASkhcXKwnSVhYGG7duhXPnz+PX79+5em6oMcTYBTyKly5ciVeunRJJs/gBATpuzEd0JMlOTkZf/z4gbB48WJTAzMZMWIExsbG4qRJk5C+T1MbbwqH2ZkzZ+LkyZM7RA4zkeRsyJAhpp1GoTwdr169ivX19XjlyhW8desWNjQ0YHZ2NgYEBJiO6U6hKIYXLlxAKryQogxWV1dL0lRUVKRnlWYiYdydAcvGjRvx+fPnSOEPfXx89HbOFzhNpSIIqXhxGdOdwu/16tUrXL16NVI41dspmmBBQQFSnSGeaxyjCWezsHDhQtNOFs7yqGhpN1S/w8PDkao23cX4IUyEcVx3Ce/wnGJPmTJFflMBhpQLSGquLcrOnTvx4sWLLuM0YZLg+vXrLswZ5dSpU7h582a55k/l3LlzuHz5crx9+zbOnj1bHsKfAKfO3ogkhYWFuGfPHrmmRAqPHTsmIa+8vByXLFkibZw1UpKnZ6FGiYqKag+DPFEqYzu4cnNzs4QOdnee5JgxY+SGvPq88pShiV1xcbE82Di2O4RrAl51bRHYQ6mclvfjqlXzzN27d0sx9et4KrldiyGu6B49eoSnT5/GvXv34tu3b8WQH8ArzDfXBjMpWt3AD9u3b5/e113S0tIi78TC72cs3IYPHy5lOl+vW7cOjx49qvfxXsbVLWW/7bUANZqitbVVcnTaRODevXswbdo0oA1R+ohdOfainRQOHjwoKShFCOnjIzA+3GDwMRhlYHLNbdynwel0ws+fP+XaaMfP5XtrMNoZwYcp8+fPh8bGRqCNEBYsWAA1NTXSx/VDZGQkpKSkQEZGBlDcl1MrrhcolAPtZWLn4gFmSE1NFda4jmcWOYHgb4wPK7he5/3jyZMnyrrr8enTJ6T6QIQTmR07dsj78ebMYXnTpk1YWlqKcXFxugcYK9hf4ZEADoHsTnyjRYsWyS7LoXHYsGHSxt+XN8FnBjx5fhfOV2bMmIGrVq3SJ8+EuINHAhicLlO5KTfUhI/CcnJykFxTWXkPvEhUjru8H5XaSK6PVLYrK3N0+lCUzSj8gcPhkCNtPsWl0Kh6/x/gw9U7d+7ImQCXwrx3eUKnCeipsP8aU9qysAlQ2rKwCVDasrAJUNqysAlQ2rKwCVDasrAJUNqysAlQ2rKwCVDasrA4AQD/ACskIbWaf1b1AAAAAElFTkSuQmCC';
-    const canvas = document.getElementById('stage');
-    const ctx = canvas.getContext('2d');
-    function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      for (var i = 0; i < population.length; i++) {
-        ctx.drawImage(carImg, population[i].position, i * 64, 64, 64);
+        // Run promises to make sure all cars are created without null values
+        Promise.all(promises)
+          .then((result) => {
+            this.population = result;
+            console.log(`[${new Date().toLocaleString()}]: Simulation ready `);
+            //   simulation = setInterval(eventTick, tickRate);
+          })
       }
     }
+
+    simulation = new SimulationManager();
   </script>
 </body>
 
