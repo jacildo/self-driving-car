@@ -1,160 +1,264 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <!-- Required meta tags -->
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
-    <!-- Bootstrap CSS -->
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
-    <script src="https://wagenaartje.github.io/neataptic/cdn/1.4.7/neataptic.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.11/lodash.min.js" integrity="sha256-7/yoZS3548fXSRXqc/xYzjsmuW3sFKzuvOCHd06Pmps=" crossorigin="anonymous"></script>
+<head>
+  <!-- Required meta tags -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
-    <title>Car Training</title>
-  </head>
-  <body>
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+    integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+  <script src="https://wagenaartje.github.io/neataptic/cdn/1.4.7/neataptic.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.11/lodash.min.js"
+    integrity="sha256-7/yoZS3548fXSRXqc/xYzjsmuW3sFKzuvOCHd06Pmps=" crossorigin="anonymous"></script>
 
-    <div class="container">
-        <canvas id="level" width="1024" height="768"></canvas>
-    </div>
+  <title>Car Training</title>
+</head>
 
+<body>
 
-    <!-- Optional JavaScript -->
-    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
-    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+  <div class="container text-center">
+    <canvas id="stage" width="1024" height="768"></canvas>
+  </div>
+  <!-- <img id="car-img" src="/public/img/car.png" style="display: none;" /> -->
+  <!-- Optional JavaScript -->
+  <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+  <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+    integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+    crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"
+    integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1"
+    crossorigin="anonymous"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
+    integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
+    crossorigin="anonymous"></script>
 
-    <script>
-      // the level map, which is what defines the road rules
-      class Level {
-        constructor(length) {
-          this.length = length;
+  <script>
+    // the level map, which is what defines the road rules
+    class Level {
+      constructor(length) {
+        this.length = length;
 
+        // intersection can't be before the midpoint of the level
+        let randomStart = (Math.random() / 2) + 0.5;
+        this.intersectionStart = Math.floor(length * randomStart);
+        this.intersectionEnd = this.intersectionStart + 50;
+        this.length = Math.max(this.intersectionEnd, this.length);
+        // 60-100kph
+        this.speedLimit = Math.floor((Math.random() * 40)) + 60;
+      }
+    }
 
-          // intersection can't be before the midpoint of the level
-          let randomStart = (Math.random() / 2) + 0.5;
-          this.intersectionStart = length * randomStart;
-          this.intersectionEnd = this.intersectionStart + 50;
-          this.length = Math.max(this.intersectionEnd, this.length);
-          // 60-100kph
-          this.speedLimit = (Math.random() * 40) + 60; 
+    class Brain {
+      constructor(net) {
+        this.net = net;
+      }
+
+      // pass in the inputs and return the output.
+      // the output layer should only have one value so return the first value in the list
+      getAction(inputs) {
+        return this.net.activate(inputs)[0];
+      }
+    }
+
+    // the car class that contains a neural network each
+    let Car = class {
+      constructor(brain, level) {
+        this.brain = brain;
+        this.level = level;
+        this.speed = 0;
+        this.acceleration = 5;
+        this.maxSpeed = 150;
+        this.minSpeed = 0;
+        this.score = 0;
+        this.active = true;
+        this.position = 0;
+        console.log(this.brain)
+      }
+
+      setLevel(level) {
+        this.level = level;
+      }
+
+      inputs() {
+        return [
+          this.speed,
+          this.acceleration,
+          this.maxSpeed,
+          this.position,
+          this.level.intersectionStart,
+          this.level.speedLimit,
+          this.score
+        ];
+      }
+
+      // the function to call in the loop 
+      tick(delta) {
+        if (this.active === false) {
+          return;
+        }
+
+        let inputs = this.inputs();
+        let action = this.brain.getAction(
+          inputs
+        );
+
+        if (Number.isNaN(action)) {
+          console.log('caused IsNan: ', inputs);
+          console.log('car', this)
+          return stopSimulation();
+        }
+
+        if (action > (2 / 3)) {
+          this.accelerate(delta);
+        } else if (action > (1 / 3)) {
+
+        } else {
+          this.decelerate(delta);
+        }
+
+        this.update(delta, inputs);
+      }
+
+      // update the car's score
+      // penalize any traffic violations and inefficiencies
+      update(delta, inputs) {
+        // over speeding penalty factor of 5
+        if (this.speed > this.level.speedLimit) {
+          this.score -= (this.level.speedLimit - this.speed) * delta * 5;
+        }
+
+        // under speeding penalty factor of 1
+        if (this.speed < this.level.speedLimit) {
+          this.score -= (this.level.speedLimit - this.speed) * delta;
+        }
+
+        let isInIntersection = _.inRange(this.position, level.intersectionStart, level.intersectionEnd);
+        let nextPosition = this.position + (this.speed * delta);
+        let nextIsInIntersection = _.inRange(this.position, level.intersectionStart, level.intersectionEnd);
+
+        // crossed the intersection, penalize 50 pts
+        if (!isInIntersection && nextIsInIntersection) {
+          this.score -= 50;
+        }
+
+        this.position = nextPosition;
+        if (this.position >= this.level.intersectionEnd) {
+          this.active = false;
         }
       }
 
-      class Brain {
-        constructor(net) {
-          this.net = net;
-        }
-
-        // pass in the inputs and return the output.
-        // the output layer should only have one value so return the first value in the list
-        getAction(...inputs) {
-          return net.activate(inputs)[0];
-        }
+      accelerate(delta) {
+        let t_speed = this.speed + this.acceleration * delta;
+        this.speed = Math.min(t_speed, this.maxSpeed);
       }
 
-      // the car class that contains a neural network each
-      class Car {
-        constructor(brain, level) {
-          this.brain = brain;
-          this.level = level;
-          this.speed = 0;
-          this.acceleration = 5;
-          this.maxSpeed = 150;
-          this.minSpeed = 0;
-          this.score = 0;
-          this.active = true;
-          this.position = 0;
-        }
-
-        setLevel(level) {
-          this.level = level;
-        }
-
-        // the function to call in the loop 
-        tick(delta) {
-          let action = this.brain.getAction();
-          if(action > 2/3) {
-            this.accelerate(delta);
-          } else if (action > 1/3) {
-
-          } else {
-            this.decelerate(delta);
-          }
-
-          this.update();
-        }
-
-        // update the car's score
-        // penalize any traffic violations and inefficiencies
-        update(delta) {
-          // over speeding penalty factor of 5
-          if(this.speed > this.level.speedLimit) {
-            this.score -= (this.speedLimit - this.speed) * 5;
-          }
-
-          let isInIntersection = _.inRange(this.position, level.intersectionStart, level.intersectionEnd);
-          let nextPosition = this.position + (this.speed * delta);
-          let nextIsInIntersection = _.inRange(this.position, level.intersectionStart, level.intersectionEnd);
-
-          // crossed the intersection, penalize 50 pts
-          if(!isInIntersection && nextIsInIntersection) {
-            this.score -= 50;
-          }
-
-          this.position = nextPosition;
-        }
-
-        accelerate(delta) {
-          this.speed += this.acceleration * delta;
-        }
-
-        decelerate(delta) {
-          this.speed -= this.acceleration * delta;
-        }
-
-        efficiency() {
-          return Math.sin((90 * Math.PI * speed / 180)/80);
-        }
-
-
+      decelerate(delta) {
+        let t_speed = this.speed - this.acceleration * delta;
+        this.speed = Math.max(t_speed, this.minSpeed);
       }
 
-      // set up the neural network architecture
-      var net = new neataptic.architect.Perceptron(8, 12, 12, 1);
-
-      // set up the global variables
-      const POPULATION_COUNT = 16;
-      const PARENT_COUNT     = 4;
-
-      // create the initial population of cars
-      let level = new Level(800);
-      let population = [...Array(POPULATION_COUNT)].map(i => {
-        let net = new neataptic.architect.Perceptron(8, 12, 12, 1);
-        let brain = new Brain(net);
-        return new Car(brain, _.clone(level));
-      });
+      efficiency() {
+        return Math.sin((90 * Math.PI * this.speed / 180) / 80);
+      }
 
 
-      let simulationRunning = true;
-      let lastTick = new Date();
+    }
 
-      let simulation = setInterval(function() {
-        let currentTick = new Date();
-        let delta = currentTick - lastTick;
-        population.map(car => {
-          car.update(delta)
+    // set up the neural network architecture
+    // var net = new neataptic.architect.Perceptron(8, 12, 12, 1);
+
+    // set up the global variables
+    const POPULATION_COUNT = 16;
+    const PARENT_COUNT = 4;
+
+    // create the initial population of cars
+    let level = new Level(800);
+    let promises = [...Array(POPULATION_COUNT)].map(i => {
+      // let net = new neataptic.architect.Perceptron(7, 16, 16, 1);
+      // net.connections.map(connection => {
+      //   connection.weight = Math.random();
+      // })
+      return new Promise(function (resolve, reject) {
+        let net = new neataptic.architect.Random(7, 32, 1, {
+          connections: 64,
+          gates: 4,
+          selfconnections: 4
         });
-        lastTick = currentTick;
-        console.log(`Last Run: ${currentTick.toLocaleTimeString()} at ${delta}ms`);
-      }, 33.3333);
 
-      function stopSimulation() {
-        clearInterval(simulation);
+        net.mutate(neataptic.methods.mutation.MOD_WEIGHT);
+        net.mutate(neataptic.methods.mutation.MOD_BIAS);
+        net.mutate(neataptic.methods.mutation.MOD_ACTIVATION);
+
+        let brain = new Brain(net);
+        let carLevel = _.clone(level);
+        let car = new Car(brain, carLevel);
+
+        resolve(car);
+      })
+    });
+
+    let simulationRunning = true;
+    let tickRate = 1000 / 30; // 30 frames per second
+    let lastTick = new Date();
+
+    function isActive(car) {
+      return car.active;
+    }
+
+    // the tick event. this runs every frame
+    function eventTick() {
+      if (!population.some(isActive)) {
+        stopSimulation();
+        return;
       }
 
-      console.log(`Application stopped at: ${Date.now()}`);
-    </script>
-  </body>
+      let currentTick = new Date();
+      let delta = currentTick - lastTick;
+      population.map(car => {
+        let deltaSeconds = delta / 1000;
+        car.tick(deltaSeconds)
+      });
+      lastTick = currentTick;
+      console.log(`Last Run: ${currentTick.toLocaleTimeString()} at ${delta}ms`);
+      draw();
+    }
+
+    let simulation;
+    let population;
+
+    function stopSimulation() {
+      clearInterval(simulation);
+      console.log(population.map(c => c.speed))
+    }
+
+    // Run promises to make sure all cars are created without null values
+    Promise.all(promises)
+      .then(function (result) {
+        population = result;
+        console.log(`Application stopped at: ${Date.now()}`);
+      })
+      .then(function () {
+        simulation = setInterval(eventTick, tickRate);
+      })
+
+
+
+    /*
+      Functions for drawing or rendering to canvas
+    */
+    let carImg = new Image();
+    carImg.src = 'data:image/png;base64,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';
+    const canvas = document.getElementById('stage');
+    const ctx = canvas.getContext('2d');
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (var i = 0; i < population.length; i++) {
+        ctx.drawImage(carImg, population[i].position, i * 64, 64, 64);
+      }
+    }
+  </script>
+</body>
+
 </html>
