@@ -187,6 +187,7 @@
         options.canvasId = options.canvasId || 'stage';
         options.populationSize = options.populationSize || 1;
         options.tickRate = options.tickRate || 24;
+        options.backgroundColor = options.backgroundColor || '#fafafa';
 
         // load the canvas
         let canvas = document.getElementById(options.canvasId);
@@ -197,6 +198,7 @@
         options.canvasWidth = options.canvasWidth || this.canvas.width;
 
         this.options = options;
+        this.populationSize = options.populationSize;
         this.simulationRunning = false;
         this.tickRate = 1000 / options.tickRate;
         this.lastTick = new Date();
@@ -227,12 +229,14 @@
         this.draw();
       }
 
+      // Set the background color of the canvas to the specified color
       applyBackground() {
-        this.ctx.fillStyle = '#fafafa';
+        this.ctx.fillStyle = this.options.backgroundColor;
         this.ctx.fillRect(0,0, this.canvas.width, this.canvas.height);
       }
 
-      // dra
+      // Takes the population objects and draw them on the html canvas.
+      // This should be called every frame, when the simulation is active.
       draw() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.applyBackground();
@@ -241,31 +245,39 @@
         }
       }
 
+      // Start or resumes the simulation.
       start() {
         this.lastTick = new Date();
         this.simulation = setInterval(this.tick, this.tickRate);
       }
 
+      // Stops or pauses the simulation
       stop() {
+        if(!this.simulation) {
+          console.error('Simulation needs to be started before stop can be called');
+        }
+
         clearInterval(this.simulation);
         console.log(this.population.map(c => c.speed))
       }
 
+      // Used in the sort and filter function parameter
       carIsActive(car) {
         return car.active;
       }
 
+      // Sets up the initial car population with a randomized neural network design
       initialize() {
         const level = new Level(this.options.canvasWidth);
 
         // create the initial population of cars
-        let promises = [...Array(this.populationSize)].map(i => {
+        let promises = [...Array(this.options.populationSize)].map(i => {
           // let net = new neataptic.architect.Perceptron(7, 16, 16, 1);
           // net.connections.map(connection => {
           //   connection.weight = Math.random();
           // })
           return new Promise(function (resolve, reject) {
-            let net = new neataptic.architect.Random(7, 32, 32, 1, {
+            let net = new neataptic.architect.Random(7, 16, 16, 1, {
               connections: 64,
               gates: 4,
               selfconnections: 4
@@ -294,7 +306,9 @@
       }
     }
 
-    simulation = new SimulationManager();
+    simulation = new SimulationManager({
+      populationSize: 16
+    });
   </script>
 </body>
 
