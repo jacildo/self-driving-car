@@ -19,6 +19,11 @@
 <body>
 
   <div class="container text-center">
+    <div>
+      <button onclick="simulation.start()" type="button" class="btn btn-primary btn-sm">Start</button>
+      <button onclick="simulation.stop()" type="button" class="btn btn-secondary btn-sm">Stop</button>
+    </div>
+    
     <canvas id="stage" width="1024" height="768"></canvas>
 
     <div class="row">
@@ -58,6 +63,7 @@
     class Brain {
       constructor(net) {
         this.net = net;
+        this.corrupted = false;
       }
 
       // pass in the inputs and return the output.
@@ -109,10 +115,14 @@
           inputs
         );
 
+        // Sometimes the inputs are malformed and returns NaN result from the neural network
+        // TODO: do some investigative work on this, could be caused by asynchronous functions
         if (Number.isNaN(action)) {
-          console.log('caused IsNan: ', inputs);
-          console.log('car', this)
-          return stopSimulation();
+          console.error('Inputs sent to neural network returned NaN outputs: ', inputs);
+          console.warn('State of car object on crash', this);
+          this.brain.corrupted = true;
+          this.active = false;
+          return;
         }
 
         if (action > (2 / 3)) {
@@ -185,9 +195,10 @@
       constructor(options) {
         options = options || {};
         options.canvasId = options.canvasId || 'stage';
-        options.populationSize = options.populationSize || 1;
+        options.populationSize = options.populationSize || 8;
         options.tickRate = options.tickRate || 24;
         options.backgroundColor = options.backgroundColor || '#fafafa';
+        options.generationRunTime = options.generationRunTime || 15;
 
         // load the canvas
         let canvas = document.getElementById(options.canvasId);
@@ -198,10 +209,10 @@
         options.canvasWidth = options.canvasWidth || this.canvas.width;
 
         this.options = options;
-        this.populationSize = options.populationSize;
         this.simulationRunning = false;
         this.tickRate = 1000 / options.tickRate;
         this.lastTick = new Date();
+        this.currentRunTime = 0;
 
         // get the canvas elements
         this.carImg = new Image();
@@ -213,20 +224,35 @@
 
       // the tick event. this runs every frame
       tick = () => {
-        if (!this.population.some(this.carIsActive)) {
+        if (this.currentLevelShouldStop()) {
+          this.currentRunTime = 0;
           this.stop();
-          return;
-        }
-
-        let currentTick = new Date();
-        let delta = currentTick - this.lastTick;
-        this.population.map(car => {
+          this.prepareNextGeneration();
+        } else {
+          let currentTick = new Date();
+          let delta = currentTick - this.lastTick;
           let deltaSeconds = delta / 1000;
-          car.tick(deltaSeconds)
-        });
-        this.lastTick = currentTick;
-        console.log(`Last Run: ${currentTick.toLocaleTimeString()} at ${delta}ms`);
-        this.draw();
+          this.population.map(car => {
+            car.tick(deltaSeconds)
+          });
+          this.lastTick = currentTick;
+          this.currentRunTime += deltaSeconds;
+
+          console.info(`Current simulation running for ${Math.round(this.currentRunTime * 100) / 100}/${this.options.generationRunTime}`);
+          this.draw();
+        }
+      }
+
+      prepareNextGeneration() {
+        // TODO: get previous generation, take the top 2 neural networks based on the score
+        //    create two more neural networks by cross breeding the top two networks
+        //    then the rest of the population is created by mutating a random sample of the previously
+        //    created neural networks
+        console.info(`[${new Date().toLocaleString()}]: New generation ready to start.`)
+      }
+
+      currentLevelShouldStop() {
+        return !this.population.some(this.carIsActive) || this.currentRunTime > this.options.generationRunTime;
       }
 
       // Set the background color of the canvas to the specified color
@@ -248,7 +274,9 @@
       // Start or resumes the simulation.
       start() {
         this.lastTick = new Date();
-        this.simulation = setInterval(this.tick, this.tickRate);
+        if(!this.simulation) {
+          this.simulation = setInterval(this.tick, this.tickRate);
+        }
       }
 
       // Stops or pauses the simulation
@@ -258,7 +286,9 @@
         }
 
         clearInterval(this.simulation);
-        console.log(this.population.map(c => c.speed))
+        this.simulation = null;
+
+        console.info('Simulation paused.', this.population.map(c => c.speed))
       }
 
       // Used in the sort and filter function parameter
@@ -288,8 +318,8 @@
             net.mutate(neataptic.methods.mutation.MOD_ACTIVATION);
 
             let brain = new Brain(net);
-            let carLevel = _.clone(level);
-            let car = new Car(brain, carLevel);
+            // let carLevel = _.clone(level);
+            let car = new Car(brain, level);
 
             resolve(car);
           })
@@ -300,14 +330,14 @@
           .then((result) => {
             this.population = result;
             this.draw();
-            console.log(`[${new Date().toLocaleString()}]: Simulation ready `);
+            console.info(`[${new Date().toLocaleString()}]: Simulation ready `);
             //   simulation = setInterval(eventTick, tickRate);
           })
       }
     }
 
     simulation = new SimulationManager({
-      populationSize: 16
+      populationSize: 8
     });
   </script>
 </body>
