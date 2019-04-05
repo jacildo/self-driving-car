@@ -79,7 +79,7 @@
         this.brain = brain;
         this.level = level;
         this.speed = 0;
-        this.acceleration = 5;
+        this.acceleration = 10;
         this.maxSpeed = 150;
         this.minSpeed = 0;
         this.score = 0;
@@ -200,6 +200,10 @@
         options.backgroundColor = options.backgroundColor || '#fafafa';
         options.generationRunTime = options.generationRunTime || 15;
 
+        if(options.populationSize < 8) {
+          return console.error('Population size should be a minimum of 8');
+        }
+
         // load the canvas
         let canvas = document.getElementById(options.canvasId);
         if(canvas === null) {
@@ -243,12 +247,44 @@
         }
       }
 
+      // 1. take the top 2 performing cars' neural network as parents
+      // 2. create 2 offsprings from the parents
+      // 3. the rest of the population is just mutated from a random sample of the previously created networks
       prepareNextGeneration() {
-        // TODO: get previous generation, take the top 2 neural networks based on the score
-        //    create two more neural networks by cross breeding the top two networks
-        //    then the rest of the population is created by mutating a random sample of the previously
-        //    created neural networks
-        console.info(`[${new Date().toLocaleString()}]: New generation ready to start.`)
+        let parents = this.population
+          .sort((a, b) => a.score > b.score ? -1 : 1)
+          .map(car => car.brain.net)
+          .slice(0, 2);
+
+        let offspring1 = neataptic.Network.crossOver(parents[0], parents[1], true);
+        let offspring2 = neataptic.Network.crossOver(parents[1], parents[0], true);
+
+        let nextGeneration = _.flatten([parents, offspring1, offspring2]);
+
+        let promises = [...Array(this.options.populationSize - nextGeneration.length)]
+          .map(i => {
+            return new Promise((resolve, reject) => {
+              let randomSampleIndex = Math.floor(Math.random() * nextGeneration.length);
+              let mutated = _.clone(nextGeneration[randomSampleIndex]);
+              mutated.mutate(neataptic.methods.mutation.MOD_WEIGHT);
+              mutated.mutate(neataptic.methods.mutation.MOD_BIAS);
+              mutated.mutate(neataptic.methods.mutation.MOD_ACTIVATION);
+              nextGeneration.push(mutated);
+              resolve();
+            });
+          });
+
+        Promise.all(promises)
+          .then(() => {
+            const level = new Level(this.options.canvasWidth);
+            this.population = nextGeneration.map(net => {
+              let brain = new Brain(net);
+              return new Car(brain, level);
+            });
+          })
+          .then(() => {
+            this.start();
+          });
       }
 
       currentLevelShouldStop() {
