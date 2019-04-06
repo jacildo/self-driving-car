@@ -47,7 +47,7 @@
   <script>
     // the level map, which is what defines the road rules
     class Level {
-      constructor(length) {
+      constructor(length, totalRuntime) {
         this.length = length;
 
         // intersection can't be before the midpoint of the level
@@ -55,14 +55,39 @@
         this.intersectionStart = Math.floor(length * randomStart);
         this.intersectionEnd = this.intersectionStart + 50;
         this.length = Math.max(this.intersectionEnd, this.length);
+
+        // 
+
         // 60-100kph
         this.speedLimit = Math.floor((Math.random() * 40)) + 60;
+
+        //   0 - Green
+        //   1 - Yellow
+        //   2 - Red
+        this.state = 0;
+      }
+
+      updateState(runTime) {
+
+      }
+
+      getColor() {
+        if(this.state === 0)
+          return 'green';
+
+        if(this.state === 1)
+          return 'yellow';
+        
+        if(this.state === 2)
+          return 'green';
+
+        console.error('State is in an invalid state', this);
       }
     }
 
     class Brain {
       constructor(net) {
-        this.net = net;
+        this.net = _.clone(net);
         this.corrupted = false;
       }
 
@@ -92,15 +117,26 @@
         this.level = level;
       }
 
+      /*
+        The inputs to pass into the neural network:
+         1. The current speed of the car
+         2. The current car position
+         3. The distance from the next intersection
+         4. The state of the intersection (green, yellow, red)
+         5. The acceleration capability of the car
+         6. The maximum speed the car can run
+         7. The road speed limit
+      */
       inputs() {
         return [
-          this.speed,
-          this.acceleration,
-          this.maxSpeed,
+          this.speed / this.maxSpeed,
+          this.speed / this.level.speedLimit,
           this.position,
-          this.level.intersectionStart,
-          this.level.speedLimit,
-          this.score
+          this.level.intersectionStart - this.position,
+          this.level.state,
+          // this.acceleration,
+          // this.maxSpeed,
+          // this.level.speedLimit
         ];
       }
 
@@ -128,10 +164,12 @@
         if (action > (2 / 3)) {
           this.accelerate(delta);
         } else if (action > (1 / 3)) {
-
+          this.idle(delta);
         } else {
           this.decelerate(delta);
         }
+
+        console.log(action)
 
         this.update(delta, inputs);
       }
@@ -142,6 +180,10 @@
         // over speeding penalty factor of 5
         if (this.speed > this.level.speedLimit) {
           this.score -= (this.level.speedLimit - this.speed) * delta * 5;
+          
+          // if((this.speed - this.level.speedLimit) > 15) {
+          //   this.brain.net.propagate(0.1, 0, true, [0]);
+          // }
         }
 
         // under speeding penalty factor of 1
@@ -151,15 +193,15 @@
 
         let isInIntersection = _.inRange(this.position, this.level.intersectionStart, this.level.intersectionEnd);
         let nextPosition = this.position + (this.speed * delta);
-        let nextIsInIntersection = _.inRange(this.position, this.level.intersectionStart, this.level.intersectionEnd);
+        let nextIsInIntersection = _.inRange(nextPosition, this.level.intersectionStart, this.level.intersectionEnd) && this.level.state === 2;
 
-        // crossed the intersection, penalize 50 pts
+        // crossed the intersection, penalize 200 pts
         if (!isInIntersection && nextIsInIntersection) {
-          this.score -= 50;
+          this.score -= 200;
         }
 
         this.position = nextPosition;
-        if (this.position >= this.level.intersectionEnd) {
+        if (this.position >= this.level.length) {
           this.active = false;
         }
       }
@@ -167,6 +209,11 @@
       accelerate(delta) {
         let t_speed = this.speed + this.acceleration * delta;
         this.speed = Math.min(t_speed, this.maxSpeed);
+      }
+
+      idle(delta) {
+        let t_speed = this.speed - this.acceleration * delta * 0.33;
+        this.speed = Math.max(t_speed, this.minSpeed);
       }
 
       decelerate(delta) {
@@ -252,6 +299,7 @@
       // 3. the rest of the population is just mutated from a random sample of the previously created networks
       prepareNextGeneration() {
         let parents = this.population
+          .filter(car => car.brain.corrupted === false)
           .sort((a, b) => a.score > b.score ? -1 : 1)
           .map(car => car.brain.net)
           .slice(0, 2);
@@ -268,6 +316,8 @@
               let mutated = _.clone(nextGeneration[randomSampleIndex]);
               mutated.mutate(neataptic.methods.mutation.MOD_WEIGHT);
               mutated.mutate(neataptic.methods.mutation.MOD_BIAS);
+              mutated.mutate(neataptic.methods.mutation.SUB_SELF_CONN);
+              mutated.mutate(neataptic.methods.mutation.SWAP_NODES);
               mutated.mutate(neataptic.methods.mutation.MOD_ACTIVATION);
               nextGeneration.push(mutated);
               resolve();
@@ -276,10 +326,10 @@
 
         Promise.all(promises)
           .then(() => {
-            const level = new Level(this.options.canvasWidth);
+            this.level = new Level(this.options.canvasWidth, this.options.generationRunTime);
             this.population = nextGeneration.map(net => {
               let brain = new Brain(net);
-              return new Car(brain, level);
+              return new Car(brain, this.level);
             });
           })
           .then(() => {
@@ -287,14 +337,19 @@
           });
       }
 
+      // stop the simulation if no cars are active anymore 
+      // or if the simulation exceeded the time alotted 
       currentLevelShouldStop() {
         return !this.population.some(this.carIsActive) || this.currentRunTime > this.options.generationRunTime;
       }
 
       // Set the background color of the canvas to the specified color
+      // then set the background color of the intersection
       applyBackground() {
         this.ctx.fillStyle = this.options.backgroundColor;
         this.ctx.fillRect(0,0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = this.level.getColor();
+        this.ctx.fillRect(this.level.intersectionStart, 0, this.level.intersectionEnd - this.level.intersectionStart, this.canvas.height);
       }
 
       // Takes the population objects and draw them on the html canvas.
@@ -334,28 +389,31 @@
 
       // Sets up the initial car population with a randomized neural network design
       initialize() {
-        const level = new Level(this.options.canvasWidth);
+        this.level = new Level(this.options.canvasWidth, this.options.generationRunTime);
 
         // create the initial population of cars
         let promises = [...Array(this.options.populationSize)].map(i => {
+
+          //// Use the following line if we want a non-randomized neural network
           // let net = new neataptic.architect.Perceptron(7, 16, 16, 1);
           // net.connections.map(connection => {
           //   connection.weight = Math.random();
           // })
-          return new Promise(function (resolve, reject) {
-            let net = new neataptic.architect.Random(7, 16, 16, 1, {
-              connections: 64,
+          return new Promise((resolve, reject) => {
+            let net = new neataptic.architect.Random(5, 25, 1, {
+              connections: 125,
               gates: 4,
               selfconnections: 4
             });
-
-            net.mutate(neataptic.methods.mutation.MOD_WEIGHT);
-            net.mutate(neataptic.methods.mutation.MOD_BIAS);
-            net.mutate(neataptic.methods.mutation.MOD_ACTIVATION);
+            // let net = new neataptic.architect.Perceptron(5, 16, 16, 1);
+            for(let i = 0; i < Math.floor(Math.random() * (net.nodes.length - net.inputs)); i++) {
+              net.mutate(neataptic.methods.mutation.MOD_WEIGHT);
+              net.mutate(neataptic.methods.mutation.MOD_BIAS);
+              net.mutate(neataptic.methods.mutation.MOD_ACTIVATION);
+            }
 
             let brain = new Brain(net);
-            // let carLevel = _.clone(level);
-            let car = new Car(brain, level);
+            let car = new Car(brain, this.level);
 
             resolve(car);
           })
